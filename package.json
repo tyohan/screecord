@@ -1,0 +1,32 @@
+{
+  "name": "screencord",
+  "version": "0.0.1",
+  "description": "PWA to record your window/screen",
+  "scripts": {
+    "serve": "es-dev-server --node-resolve --preserve-symlinks --compatibility auto --port $PORT",
+    "start": "npm run serve"
+  },
+  "dependencies": {
+    "lit-element": "^2.3.0",
+    "lit-html": "^1.2.1",
+    "wired-toggle": "^2.0.2",
+    "wired-button": "^2.0.2",
+    "wired-video": "^2.0.2",
+    "wired-slider": "^2.0.2",
+    "wired-fab": "^2.0.2",
+    "@material/mwc-icon": "^0.14.1"
+  },
+  "devDependencies": {
+    "es-dev-server": "^1.27.1",
+    "mkdirp-promise": "^5.0.1",
+    "node-fetch": "^2.6.0",
+    "write-pkg": "^4.0.0"
+  },
+  "engines": {
+    "node": "12.13.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "glitch"
+  ]
+}
