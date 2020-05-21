@@ -14,7 +14,10 @@
     "wired-video": "^2.0.2",
     "wired-slider": "^2.0.2",
     "wired-fab": "^2.0.2",
-    "@material/mwc-icon": "^0.14.1"
+    "@material/mwc-icon": "^0.15.0",
+    "wired-combo": "^2.0.2",
+    "wired-card": "^2.0.2",
+    "wired-item": "^2.0.2"
   },
   "devDependencies": {
     "es-dev-server": "^1.27.1",
