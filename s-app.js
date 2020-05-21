@@ -1,10 +1,16 @@
-import { WiredButton } from "wired-button";
-import { WiredToggle } from "wired-toggle";
-import { WiredVideo } from "wired-video";
-import { WiredSlider } from "wired-slider";
-import { WiredFab } from "wired-fab";
+import "wired-button";
+import "wired-toggle";
+import "wired-video";
+import "wired-slider";
+import "wired-fab";
+import "wired-combo";
+import "wired-item";
+import "wired-card";
 import '@material/mwc-icon';
+import {html, render} from 'lit-html';
+import {repeat} from 'lit-html/directives/repeat';
 import screenCord from './screen-cord.js';
+
 
 export default class SApp extends HTMLElement{
   constructor(){
@@ -13,36 +19,15 @@ export default class SApp extends HTMLElement{
     this.objectUrl = null;
     this.recorder = null;
   }
-
-async toggleCapture(){
-  if(!this.recorder) this.initRecorder();
-  
-  if(this.recorder.mediaRecorder && this.recorder.mediaRecorder.state === 'inactive'){
-    await this.recorder.toggleCapture();
-  } else{
-    await this.recorder.toggleCapture();
-  }
-  
-}
-
-createDownloadElement() {
-    const a = document.createElement("a");
-    a.setAttribute('id','btn-download');
-    document.body.appendChild(a);
-    a.innerHTML = 'Download';
-    a.href = this.objectUrl;
-    a.download = "recorded-screen.webm";
-    return a;
-  }
   
   get template(){
-    return `
+    return html`
     <style>
       #app-container{
         display:grid;
         max-width:960px;
         margin:0 auto;
-        grid-template-rows:160px auto 64px auto;
+        grid-template-rows:120px auto auto auto;
         grid-template-columns:1fr;
         align-items: center;
         justify-content:center;
@@ -65,14 +50,22 @@ createDownloadElement() {
         align-self:end;
       }
 
-      aside{
+      aside,#microphone{
         margin:2rem 0;
         align-self:start;
         justify-self:center;
         line-height:34px;
       }
-      aside wired-toggle{
+      wired-combo,wired-toggle{
         vertical-align:middle;
+      }
+      
+      #info{
+        margin:2rem 0;
+      }
+
+      #info .error{
+        color:red;
       }
 
       .big{
@@ -119,53 +112,127 @@ createDownloadElement() {
     </style>
     <div id="app-container">
       <h1>
-        ScreenCord
+        ScreeCord
       </h1>
       <div id="recorder">
         <h3>Record</h3>
         <wired-fab id="btn-record" class="big"><mwc-icon>fiber_manual_record</mwc-icon></wired-fab>
         <aside>
         
-            <span><wired-toggle id="setting-audio" checked></wired-toggle> Record audio</span>
-
+            <span><wired-toggle id="setting-audio" checked></wired-toggle> Record screen audio</span>
+            
+            <span>
+            </span>
             <span><wired-toggle id="setting-cursor" checked></wired-toggle> Record cursor</span>
-
         </aside>
         <div>
-          Adjust setting if needed and click record if you're ready.
+              <span><wired-toggle id="setting-mic"></wired-toggle> Record from microphone</span>
+              <span id="microphones">
+              <wired-combo disabled>
+              </wired-combo>
+              </span>
+        </div>
+        <div id="info">
+          <div>Adjust settings if needed and click record if you're ready.</div>
         </div>
       </div>
       <div id="player" style="--aspect-ratio:16/9;">
           <wired-video autoplay></wired-video>
       </div>
       <div id="recorded-info">
-        
       </div>
-      // <div id="video-editor">
-      //     <wired-slider id="trim-start" pin max="50" value="0" ></wired-slider>
-      //     <wired-slider id="trim-end" pin max="50" value="0" ></wired-slider>
-      // </div>
-      
     </div>`;
   }
+  
+  _addInfo(id,className,info){
+    const divEl = document.createElement('div');
+    divEl.classList.add(className);
+    divEl.classList.add(id);
+    divEl.innerText = info;
+    this.shadowRoot.querySelector('#info').appendChild(divEl);
+  }
+  
+  _removeInfo(className){
+    this.shadowRoot.querySelector(`.${className}`).remove();
+  }
+  
   connectedCallback(){
-    this._shadowRoot.innerHTML = this.template;
-    this._shadowRoot.querySelector('#btn-record').addEventListener('click',() => {this.toggleCapture()});
+    render(this.template,this.shadowRoot);
     
+    this._shadowRoot.querySelector('#btn-record').addEventListener('click',() => {this.toggleCapture()});
+    const micSetting = this._shadowRoot.querySelector('#setting-mic');
+    micSetting.addEventListener('change',async () => {
+      if(micSetting.checked){
+        const result = await navigator.permissions.query({name:'microphone'});
+          if (result.state == 'granted') {
+            this._getAudioInputs();
+          } else if (result.state == 'prompt') {
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          } else if (result.state == 'denied') {
+              this._addInfo('mic-permission','error','Need permission to your microphone, please check your microphone permission on site or privacy settings');
+          }
+          result.onchange = () => {
+            if(result.state == 'granted'){
+              this._getAudioInputs();
+              this._removeInfo('mic-permission');
+            }
+              
+          };
+      }
+    });
+  }
+  
+  async _getAudioInputs(){
+    const audioInputs = await screenCord.getAudioInputs();
+    const innerHtml = html`
+        <wired-combo selected="${audioInputs[0].deviceId}">
+        ${repeat(audioInputs, (input) => html`
+          <wired-item value="${input.deviceId}">${input.label}</wired-item>`)}
+        </wired-combo>
+    `;
+    const micSelect = this.shadowRoot.querySelector('#microphones');
+    render(innerHtml,micSelect);
+  }
+  
+  async toggleCapture(){
+    if(!this.recorder) this.initRecorder();
+
+    if(this.recorder.mediaRecorder && this.recorder.mediaRecorder.state === 'inactive'){
+      await this.recorder.toggleCapture();
+    } else{
+      await this.recorder.toggleCapture();
+    }
+
+  }
+
+  createDownloadElement() {
+    const a = document.createElement("a");
+    a.setAttribute('id','btn-download');
+    document.body.appendChild(a);
+    a.innerHTML = 'Download';
+    a.href = this.objectUrl;
+    a.download = "recorded-screen.webm";
+    return a;
   }
   
   initRecorder(){
+    const settingMic = this.shadowRoot.querySelector('#setting-mic');
     this.recorder = new screenCord(this._shadowRoot,{
         width: { ideal: window.screen.width },
         height: { ideal: window.screen.height },
-        cursor: this._shadowRoot.querySelector('#setting-audio').getAttribute('checked')?"always":"never",
+        cursor: this._shadowRoot.querySelector('#setting-cursor').checked?"always":"never",
         aspectRatio: 1.777777778,
         frameRate: { max: 30 }
-    },this._shadowRoot.querySelector('#setting-audio').getAttribute('checked')?{
+    },this._shadowRoot.querySelector('#setting-audio').checked?{
       echoCancellation: true,
       noiseSuppression: true,
       sampleRate: 44100
-    }:false);
+    }:false,
+    settingMic.checked?{
+  audio: {
+    deviceId: settingMic.selected
+  }
+}:null);
     
     this.recorder.onRecordingStop = (blob) => {
       this.objectUrl= URL.createObjectURL(blob);
@@ -176,7 +243,7 @@ createDownloadElement() {
 
       const player = this._shadowRoot.querySelector('#player');
       player.style.display = 'block';
-      this._shadowRoot.querySelector('#player video').setAttribute('src',this.objectUrl);
+      this._shadowRoot.querySelector('#player wired-video').setAttribute('src',this.objectUrl);
       this._shadowRoot.querySelector('#recorder').style.display = 'none';
     };
   }

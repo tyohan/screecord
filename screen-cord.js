@@ -1,12 +1,19 @@
 export default class screenCord{
-  constructor(rootElement,videoConstraint,audioConstraint){
+  constructor(rootElement,videoConstraint,audioConstraint,micConstraint){
     this.stream = null;
     this.mediaRecorder = null;
     this.recordedChunks = null;
     this.objectUrl = null;
     this.videoConstraint = videoConstraint;
     this.audioConstraint = audioConstraint;
+    this.micConstraint = micConstraint;
     this.rootElement = rootElement;
+  }
+  
+  static async getAudioInputs(){
+      let devices = await navigator.mediaDevices.enumerateDevices();
+      devices = devices.filter((d) => d.kind === 'audioinput');
+      return devices;
   }
   
  async toggleCapture(){
@@ -26,22 +33,48 @@ export default class screenCord{
     
       try {
         this.stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+        
+        //we add track from microphone stream if constraint set
+        if(this.micConstraint){
+          const micStream = await navigator.mediaDevices.getUserMedia(this.micConstraint);
+          micStream.getAudioTracks().forEach(track => {
+            this.stream.addTrack(track);
+          })
+        }
+        
         this.recordStream();
       } catch(err) {
         console.error("Error: " + err);
       }
   } else {
-    this.mediaRecorder.stop();
+    //only call stop() if still active. Could be inactive if stop from browser directly
+    if(this.mediaRecorder.state !=='inactive') this.mediaRecorder.stop();
   }
 }
   
 stopCapture(){
+  this.stream.getTracks().forEach(track => track.stop());
   this.mediaRecorder = null;
   this.stream = null;
 }
+
+getMimeType(){
+  const types = [
+            "video/webm\;codecs=vp9", 
+             "video/webm\;codecs=vp8", 
+             "video/webm\;codecs=daala", 
+             "video/webm\;codecs=h264", 
+             "audio/webm\;codecs=opus", 
+             "video/mpeg"];
+
+for (let i in types) { 
+  if(MediaRecorder.isTypeSupported(types[i]))
+    return types[i];
+  }  
+}
   
 recordStream(){
-    const options = { mimeType: "video/webm; codecs=vp9" };
+    const options = { mimeType: this.getMimeType() };
     this.mediaRecorder = new MediaRecorder(this.stream, options);
 
     this.mediaRecorder.ondataavailable = (e) => {
@@ -55,10 +88,6 @@ recordStream(){
     };
 
     this.mediaRecorder.onstop = (e) =>{
-        const tracks = this.stream.getTracks();
-        //only call stop() if still active. Could be inactive if stop from browser directly
-        if(this.mediaRecorder.state !=='inactive') this.mediaRecorder.stop();
-
         const blob = new Blob(this.recordedChunks, {
           type: "video/webm"
         });
